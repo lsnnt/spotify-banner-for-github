@@ -1,19 +1,31 @@
 # spotify banner
 
-It fetches your 20 recently played songs and as of now prints it on terminal
-The main reason to implement this by myself and not using and existing libraries is because spotify now restricts only premium spotify user to use the Web api so this is done using some tricks by logging it into your account and using developer try me web api thing.
+It's an http server running on port 8080 which get's your 20 recently played songs and then converts it into svg then returns it.
 
-## to use
+
+## To have your own banner
+
 First of all clone and go to the directory
 
 1) Create a .env file
+get the sp_dc cookie value from the cookies section on open.spotify.com
 ```
 SPDC="Your sp_dc cookie value"
 ```
-2) Run the script
+2) Build the binary file
 ```
-go run .
+go build . 
 ```
-To implement 
+3) Run the binary file
+```
+./spotify-banner-for-github
+```
 
-[x] An http server which then converts it into an svg to be included somewhere.
+Then go to http://localhost:8080/ to view the svg image generated
+
+
+This is the initial design, clone the repo contribute it, improve it
+
+we do need improvements on svg design
+
+You can view the spotify banner on my profile
