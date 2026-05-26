@@ -28,4 +28,5 @@ This is the initial design, clone the repo contribute it, improve it
 
 we do need improvements on svg design
 
-You can view the spotify banner on my profile
+## Banner 
+<img src="https://spotify.fustin.top/?temp=foo" />

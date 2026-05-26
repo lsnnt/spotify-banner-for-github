@@ -21,6 +21,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// The json objects decoder structs
 type Track struct {
 	Name string `json:"name"`
 }
@@ -31,8 +32,10 @@ type RecentlyPlayedResponse struct {
 	Items []Item `json:"items"`
 }
 
+// http Handler function to handle the request 
 func myHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "image/svg+xml")
+	// The cache control header is necessary otherwise guthub camo (image caching service) will cache the image
 	w.Header().Add("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate")
 	client := &http.Client{}
 	rcpls := getrecpls(client, gettoken(client))
@@ -74,6 +77,7 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 	s.End()
 }
 
+// function to generate random 64 bit string Code Verifier
 func getcodeverifier() string {
 	byts := make([]byte, 64)
 	_, err := rand.Read(byts)
@@ -83,11 +87,13 @@ func getcodeverifier() string {
 	token := base64.RawURLEncoding.EncodeToString(byts)
 	return token
 }
-
+// Function to generate Code Challange
 func getcodechallenge(codeverifier string) string {
 	shaenc := sha256.Sum256([]byte(codeverifier))
 	return base64.RawURLEncoding.EncodeToString(shaenc[:])
 }
+
+// Gets the bearer api token 
 func getapitoken(client *http.Client, code string, codeverifier string) string {
 	baseurl := "https://accounts.spotify.com/api/token"
 	params := url.Values{
@@ -107,7 +113,6 @@ func getapitoken(client *http.Client, code string, codeverifier string) string {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// fmt.Println(resp.StatusCode)
 	defer resp.Body.Close()
 	bodyText, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -117,10 +122,13 @@ func getapitoken(client *http.Client, code string, codeverifier string) string {
 	return token
 }
 
+// Gets the bearer token necessary for the api calling implementing the Oauth PKCE flow
 func gettoken(client *http.Client) string {
 	godotenv.Load()
+	// Needed for PKCE auth 
 	codever := getcodeverifier()
 	codechal := getcodechallenge(codever)
+	// read https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow
 
 	baseURL := "https://accounts.spotify.com/oauth2/v2/auth"
 	params := url.Values{
@@ -155,6 +163,7 @@ func gettoken(client *http.Client) string {
 	return token
 }
 
+// Function that returns the 20 recently played songs as a string array.
 func getrecpls(client *http.Client, token string) []string {
 	murl := "https://api.spotify.com/v1/me/player/recently-played"
 	params := url.Values{
@@ -184,10 +193,6 @@ func getrecpls(client *http.Client, token string) []string {
 }
 
 func main() {
-	// client := &http.Client{}
-	// fmt.Println("hii");
-	// tok := gettoken(client)
-	// getrecpls(client,tok)
 	s := &http.Server{
 		Addr:         ":8080",
 		Handler:      http.HandlerFunc(myHandler),
