@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "crypto"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -12,9 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-
-	// "strconv"
 	"strings"
+	"sync"
 	"time"
 
 	svg "github.com/ajstarks/svgo"
@@ -32,13 +30,40 @@ type RecentlyPlayedResponse struct {
 	Items []Item `json:"items"`
 }
 
-// http Handler function to handle the request 
+// global token caching
+var (
+	cachedToken string
+	tokenMu     sync.Mutex
+)
+
+func getCachedToken() string {
+	tokenMu.Lock()
+	defer tokenMu.Unlock()
+	if cachedToken == "" {
+		cachedToken = gettoken()
+	}
+	return cachedToken
+}
+
+func invalidateToken() {
+	tokenMu.Lock()
+	defer tokenMu.Unlock()
+	cachedToken = ""
+}
+
+// Global http client
+var httpClient = &http.Client{
+	Transport: &http.Transport{
+		MaxIdleConnsPerHost: 10,
+	},
+}
+
+// http Handler function to handle the request
 func myHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "image/svg+xml")
 	// The cache control header is necessary otherwise guthub camo (image caching service) will cache the image
 	w.Header().Add("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate")
-	client := &http.Client{}
-	rcpls := getrecpls(client, gettoken(client))
+	rcpls := getrecpls()
 	// AI code below
 	s := svg.New(w)
 	width, height := 700, 800
@@ -87,14 +112,15 @@ func getcodeverifier() string {
 	token := base64.RawURLEncoding.EncodeToString(byts)
 	return token
 }
+
 // Function to generate Code Challange
 func getcodechallenge(codeverifier string) string {
 	shaenc := sha256.Sum256([]byte(codeverifier))
 	return base64.RawURLEncoding.EncodeToString(shaenc[:])
 }
 
-// Gets the bearer api token 
-func getapitoken(client *http.Client, code string, codeverifier string) string {
+// Gets the bearer api token
+func getapitoken(code string, codeverifier string) string {
 	baseurl := "https://accounts.spotify.com/api/token"
 	params := url.Values{
 		"client_id":     {"cfe923b2d660439caf2b557b21f31221"},
@@ -109,7 +135,7 @@ func getapitoken(client *http.Client, code string, codeverifier string) string {
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -123,9 +149,9 @@ func getapitoken(client *http.Client, code string, codeverifier string) string {
 }
 
 // Gets the bearer token necessary for the api calling implementing the Oauth PKCE flow
-func gettoken(client *http.Client) string {
+func gettoken() string {
 	godotenv.Load()
-	// Needed for PKCE auth 
+	// Needed for PKCE auth
 	codever := getcodeverifier()
 	codechal := getcodechallenge(codever)
 	// read https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow
@@ -138,7 +164,7 @@ func gettoken(client *http.Client) string {
 		"redirect_uri":          {"https://developer.spotify.com"},
 		"code_challenge":        {codechal},
 		"code_challenge_method": {"S256"},
-		"state":                 {"x1X0-Qo96pi118lEr8s0MZlVQ_lgVfCW"},
+		"state":                 {"x1X0-Qo96pi118lEr8s0MZlVQ_lgVfCW"}, //optional
 		"response_mode":         {"web_message"},
 		"prompt":                {"none"},
 	}
@@ -149,7 +175,7 @@ func gettoken(client *http.Client) string {
 	}
 	spdccok := os.Getenv("SPDC")
 	req.Header.Set("Cookie", "sp_dc="+spdccok)
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -159,40 +185,58 @@ func gettoken(client *http.Client) string {
 		log.Fatal(err)
 	}
 	code := strings.Split(strings.Split(string(bodyText), "\"code\": \"")[1], "\"")[0]
-	token := getapitoken(client, code, codever)
+	token := getapitoken(code, codever)
 	return token
 }
 
 // Function that returns the 20 recently played songs as a string array.
-func getrecpls(client *http.Client, token string) []string {
-	murl := "https://api.spotify.com/v1/me/player/recently-played"
-	params := url.Values{
-		"limit": {"20"},
-	}
-	req, err := http.NewRequest("GET", murl+"?"+params.Encode(), nil)
+func getrecpls() []string {
+	for attempt := 0; attempt < 2; attempt++ {
+		token := getCachedToken()
 
-	if err != nil {
-		log.Fatal(err)
+		murl := "https://api.spotify.com/v1/me/player/recently-played"
+		params := url.Values{"limit": {"20"}}
+		req, err := http.NewRequest("GET", murl+"?"+params.Encode(), nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		res, err := httpClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if res.StatusCode != http.StatusOK {
+			res.Body.Close()
+			invalidateToken() // invalidate token
+			continue
+		}
+
+		var data RecentlyPlayedResponse
+		err = json.NewDecoder(res.Body).Decode(&data)
+		res.Body.Close()
+		if err != nil {
+			fmt.Println(err)
+			return nil
+		}
+
+		var tracks []string
+		for _, item := range data.Items {
+			tracks = append(tracks, item.Track.Name)
+		}
+		return tracks
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	res, err := client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer res.Body.Close()
-	var data RecentlyPlayedResponse
-	err = json.NewDecoder(res.Body).Decode(&data)
-	if err != nil {
-		fmt.Println(err)
-	}
-	var relol []string
-	for _, item := range data.Items {
-		relol = append(relol, item.Track.Name)
-	}
-	return relol
+	fmt.Println("failed after token refresh, giving up")
+	return nil
+
 }
 
 func main() {
+	go func() {
+		invalidateToken()
+		getCachedToken()
+	}()
 	s := &http.Server{
 		Addr:         ":8080",
 		Handler:      http.HandlerFunc(myHandler),
