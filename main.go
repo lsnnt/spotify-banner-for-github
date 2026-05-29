@@ -71,7 +71,7 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate")
 	rcpls,err := getMusicRecords()
 	if err != nil {
-		http.Error(w, "failed to fetch tracks", 500)
+		http.Error(w, fmt.Sprintf("failed to fetch tracks: %v", err), 500)
 		log.Println(err) // log it but don't crash
 		return
 	}
@@ -196,7 +196,7 @@ func getToken() (string,error) {
 	}
 	parts := strings.Split(string(bodyText), "\"code\": \"")
 	if len(parts)<2 {
-		log.Fatal("invalid sp_dc cookie or expired, please update it")
+		return "",fmt.Errorf("The sp_dc cookie is expired or invalid: %x",err)
 	}
 	code := strings.Split(parts[1], "\"")[0]
 	token,err := getApiToken(code, codever)
