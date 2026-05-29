@@ -35,12 +35,14 @@ var (
 	cachedToken string
 	tokenMu     sync.Mutex
 )
-
+const (
+	clientID string = "cfe923b2d660439caf2b557b21f31221"
+)
 func getCachedToken() (string,error) {
 	tokenMu.Lock()
 	defer tokenMu.Unlock()
 	if cachedToken == "" {
-		token, err := gettoken()
+		token, err := getToken()
         if err != nil {
             return "", fmt.Errorf("getting token: %w", err)
         }
@@ -67,7 +69,7 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "image/svg+xml")
 	// The cache control header is necessary otherwise guthub camo (image caching service) will cache the image
 	w.Header().Add("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate")
-	rcpls,err := getrecpls()
+	rcpls,err := getMusicRecords()
 	if err != nil {
 		http.Error(w, "failed to fetch tracks", 500)
 		log.Println(err) // log it but don't crash
@@ -112,7 +114,7 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // function to generate random 64 bit string Code Verifier
-func getcodeverifier() string {
+func getCodeVerifier() string {
 	byts := make([]byte, 64)
 	_, err := rand.Read(byts)
 	if err != nil {
@@ -123,16 +125,16 @@ func getcodeverifier() string {
 }
 
 // Function to generate Code Challange
-func getcodechallenge(codeverifier string) string {
+func getCodeChallange(codeverifier string) string {
 	shaenc := sha256.Sum256([]byte(codeverifier))
 	return base64.RawURLEncoding.EncodeToString(shaenc[:])
 }
 
 // Gets the bearer api token
-func getapitoken(code string, codeverifier string) (string,error) {
+func getApiToken(code string, codeverifier string) (string,error) {
 	baseurl := "https://accounts.spotify.com/api/token"
 	params := url.Values{
-		"client_id":     {"cfe923b2d660439caf2b557b21f31221"},
+		"client_id":     {clientID},
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
 		"redirect_uri":  {"https://developer.spotify.com"},
@@ -158,17 +160,16 @@ func getapitoken(code string, codeverifier string) (string,error) {
 }
 
 // Gets the bearer token necessary for the api calling implementing the Oauth PKCE flow
-func gettoken() (string,error) {
-	godotenv.Load()
+func getToken() (string,error) {
 	// Needed for PKCE auth
-	codever := getcodeverifier()
-	codechal := getcodechallenge(codever)
+	codever := getCodeVerifier()
+	codechal := getCodeChallange(codever)
 	// read https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow
 
 	baseURL := "https://accounts.spotify.com/oauth2/v2/auth"
 	params := url.Values{
 		"response_type":         {"code"},
-		"client_id":             {"cfe923b2d660439caf2b557b21f31221"},
+		"client_id":             {clientID},
 		"scope":                 {"email openid profile user-self-provisioning playlist-modify-private playlist-modify-public playlist-read-collaborative playlist-read-private ugc-image-upload user-follow-modify user-follow-read user-library-modify user-library-read user-modify-playback-state user-read-currently-playing user-read-email user-read-playback-position user-read-playback-state user-read-private user-read-recently-played user-top-read user-personalized"},
 		"redirect_uri":          {"https://developer.spotify.com"},
 		"code_challenge":        {codechal},
@@ -180,7 +181,7 @@ func gettoken() (string,error) {
 	authUrl := baseURL + "?" + params.Encode()
 	req, err := http.NewRequest("GET", authUrl, nil)
 	if err != nil {
-		fmt.Println(err)
+		return "",err
 	}
 	spdccok := os.Getenv("SPDC")
 	req.Header.Set("Cookie", "sp_dc="+spdccok)
@@ -193,8 +194,12 @@ func gettoken() (string,error) {
 	if err != nil {
 		return "",fmt.Errorf("Error reading the response %w",err)
 	}
-	code := strings.Split(strings.Split(string(bodyText), "\"code\": \"")[1], "\"")[0]
-	token,err := getapitoken(code, codever)
+	parts := strings.Split(string(bodyText), "\"code\": \"")
+	if len(parts)<2 {
+		log.Fatal("invalid sp_dc cookie or expired, please update it")
+	}
+	code := strings.Split(parts[1], "\"")[0]
+	token,err := getApiToken(code, codever)
 	if err != nil {
 		return "", err
 	}
@@ -202,7 +207,7 @@ func gettoken() (string,error) {
 }
 
 // Function that returns the 20 recently played songs as a string array.
-func getrecpls() ([]string,error) {
+func getMusicRecords() ([]string,error) {
 	for attempt := 0; attempt < 2; attempt++ {
 		token,err := getCachedToken()
 		if err != nil {
@@ -246,7 +251,9 @@ func getrecpls() ([]string,error) {
 
 func main() {
 	go func() {
-		invalidateToken()
+		if err := godotenv.Load(); err != nil {
+			log.Fatal("failed to load .env:", err)
+		}
 		getCachedToken()
 	}()
 	s := &http.Server{
