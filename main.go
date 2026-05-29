@@ -36,13 +36,17 @@ var (
 	tokenMu     sync.Mutex
 )
 
-func getCachedToken() string {
+func getCachedToken() (string,error) {
 	tokenMu.Lock()
 	defer tokenMu.Unlock()
 	if cachedToken == "" {
-		cachedToken = gettoken()
+		token, err := gettoken()
+        if err != nil {
+            return "", fmt.Errorf("getting token: %w", err)
+        }
+        cachedToken = token
 	}
-	return cachedToken
+	return cachedToken,nil
 }
 
 func invalidateToken() {
@@ -63,7 +67,12 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "image/svg+xml")
 	// The cache control header is necessary otherwise guthub camo (image caching service) will cache the image
 	w.Header().Add("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate")
-	rcpls := getrecpls()
+	rcpls,err := getrecpls()
+	if err != nil {
+		http.Error(w, "failed to fetch tracks", 500)
+		log.Println(err) // log it but don't crash
+		return
+	}
 	// AI code below
 	s := svg.New(w)
 	width, height := 700, 800
@@ -120,7 +129,7 @@ func getcodechallenge(codeverifier string) string {
 }
 
 // Gets the bearer api token
-func getapitoken(code string, codeverifier string) string {
+func getapitoken(code string, codeverifier string) (string,error) {
 	baseurl := "https://accounts.spotify.com/api/token"
 	params := url.Values{
 		"client_id":     {"cfe923b2d660439caf2b557b21f31221"},
@@ -131,25 +140,25 @@ func getapitoken(code string, codeverifier string) string {
 	}
 	req, err := http.NewRequest("POST", baseurl, strings.NewReader(params.Encode()))
 	if err != nil {
-		log.Fatal(err)
+		return "", fmt.Errorf("Error building request: %w",err)
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return "", fmt.Errorf("Error making request: %w",err)
 	}
 	defer resp.Body.Close()
 	bodyText, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		return "", fmt.Errorf("Error reading response: %w",err)
 	}
 	token := strings.Split(strings.Split(string(bodyText), "\"access_token\":\"")[1], "\",")[0]
-	return token
+	return token,nil
 }
 
 // Gets the bearer token necessary for the api calling implementing the Oauth PKCE flow
-func gettoken() string {
+func gettoken() (string,error) {
 	godotenv.Load()
 	// Needed for PKCE auth
 	codever := getcodeverifier()
@@ -177,34 +186,40 @@ func gettoken() string {
 	req.Header.Set("Cookie", "sp_dc="+spdccok)
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return "",fmt.Errorf("Error doing the request %w",err)
 	}
 	defer resp.Body.Close()
 	bodyText, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		return "",fmt.Errorf("Error reading the response %w",err)
 	}
 	code := strings.Split(strings.Split(string(bodyText), "\"code\": \"")[1], "\"")[0]
-	token := getapitoken(code, codever)
-	return token
+	token,err := getapitoken(code, codever)
+	if err != nil {
+		return "", err
+	}
+	return token,nil
 }
 
 // Function that returns the 20 recently played songs as a string array.
-func getrecpls() []string {
+func getrecpls() ([]string,error) {
 	for attempt := 0; attempt < 2; attempt++ {
-		token := getCachedToken()
+		token,err := getCachedToken()
+		if err != nil {
+			return nil,fmt.Errorf("getting cached token err: %w",err)
+		}
 
 		murl := "https://api.spotify.com/v1/me/player/recently-played"
 		params := url.Values{"limit": {"20"}}
 		req, err := http.NewRequest("GET", murl+"?"+params.Encode(), nil)
 		if err != nil {
-			log.Fatal(err)
+			return nil, fmt.Errorf("building request: %w", err)
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
 
 		res, err := httpClient.Do(req)
 		if err != nil {
-			log.Fatal(err)
+			return nil, fmt.Errorf("building request: %w", err)
 		}
 
 		if res.StatusCode != http.StatusOK {
@@ -217,19 +232,16 @@ func getrecpls() []string {
 		err = json.NewDecoder(res.Body).Decode(&data)
 		res.Body.Close()
 		if err != nil {
-			fmt.Println(err)
-			return nil
+			return nil, fmt.Errorf("Json Decoding err: %w",err)
 		}
 
 		var tracks []string
 		for _, item := range data.Items {
 			tracks = append(tracks, item.Track.Name)
 		}
-		return tracks
+		return tracks,nil
 	}
-	fmt.Println("failed after token refresh, giving up")
-	return nil
-
+	return nil,fmt.Errorf("failed after token refresh, giving up")
 }
 
 func main() {
