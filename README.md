@@ -20,7 +20,7 @@ The server also sets `Cache-Control: no-cache, no-store, must-revalidate` on eve
 
 ---
 
-## Setup
+## Setup (Recommended)
 
 **Prerequisites:** Go 1.21+
 
@@ -61,7 +61,7 @@ Deploy to any publicly reachable server (a VPS, fly.io, etc.), then embed:
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/lsnnt/spotify-banner-for-github)
 
-1. Click the button above or import your fork into Vercel.
+1. Click the button above or import your fork into Vercel. When deploying select the Go runtime 
 2. Set the following environment variables in your project settings:
 
 | Variable | Description |
