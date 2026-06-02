@@ -196,7 +196,7 @@ func getToken() (string,error) {
 	}
 	parts := strings.Split(string(bodyText), "\"code\": \"")
 	if len(parts)<2 {
-		return "",fmt.Errorf("The sp_dc cookie is expired or invalid: %x",err)
+		return "",fmt.Errorf("The sp_dc cookie is expired or invalid or env variable is not set: %x",err)
 	}
 	code := strings.Split(parts[1], "\"")[0]
 	token,err := getApiToken(code, codever)
@@ -252,12 +252,17 @@ func getMusicRecords() ([]string,error) {
 func main() {
 	go func() {
 		if err := godotenv.Load(); err != nil {
-			log.Fatal("failed to load .env:", err)
+			log.Print("failed to load .env: using envirenment SPDC variable if possible", err)
 		}
 		getCachedToken()
 	}()
+	// Required for vercel
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 	s := &http.Server{
-		Addr:         ":8080",
+		Addr:         ":"+port,
 		Handler:      http.HandlerFunc(myHandler),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
