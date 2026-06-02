@@ -20,7 +20,27 @@ The server also sets `Cache-Control: no-cache, no-store, must-revalidate` on eve
 
 ---
 
-## Setup (Recommended)
+## Deploy on Vercel (Recommended)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/lsnnt/spotify-banner-for-github)
+
+1. Click the button above or import your fork into Vercel. When deploying select the Go runtime 
+2. Set the following environment variables in your project settings:
+
+| Variable | Description |
+|----------|-------------|
+| `SP_DC` | Your Spotify `sp_dc` session cookie |
+
+3. After deployment, copy your Vercel URL (e.g. `https://your-app.vercel.app`).
+4. Add it to your GitHub profile README:
+
+~~~markdown
+![Spotify](https://your-app.vercel.app)
+~~~
+
+---
+
+## Setup 
 
 **Prerequisites:** Go 1.21+
 
@@ -56,24 +76,6 @@ Deploy to any publicly reachable server (a VPS, fly.io, etc.), then embed:
 ```
 
 > **Note on GitHub Camo caching:** Even with correct cache headers, GitHub's image proxy can take a few minutes to reflect updates. This is a GitHub-side limitation and not specific to this project.
-
-## Deploy on Vercel
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/lsnnt/spotify-banner-for-github)
-
-1. Click the button above or import your fork into Vercel. When deploying select the Go runtime 
-2. Set the following environment variables in your project settings:
-
-| Variable | Description |
-|----------|-------------|
-| `SP_DC` | Your Spotify `sp_dc` session cookie |
-
-3. After deployment, copy your Vercel URL (e.g. `https://your-app.vercel.app`).
-4. Add it to your GitHub profile README:
-
-~~~markdown
-![Spotify](https://your-app.vercel.app)
-~~~
 
 ---
 ## Self-hosting
@@ -112,6 +114,8 @@ The SVG design is intentionally minimal right now — contributions to make it l
 Open an issue or PR if you want to take something on.
 
 ---
+### Attributions
+Spotify icon by [Icons8]("https://icons8.com/")
 
 ## License
 
