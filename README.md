@@ -57,8 +57,25 @@ Deploy to any publicly reachable server (a VPS, fly.io, etc.), then embed:
 
 > **Note on GitHub Camo caching:** Even with correct cache headers, GitHub's image proxy can take a few minutes to reflect updates. This is a GitHub-side limitation and not specific to this project.
 
----
+## Deploy on Vercel
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/lsnnt/spotify-banner-for-github)
+
+1. Click the button above or import your fork into Vercel.
+2. Set the following environment variables in your project settings:
+
+| Variable | Description |
+|----------|-------------|
+| `SP_DC` | Your Spotify `sp_dc` session cookie |
+
+3. After deployment, copy your Vercel URL (e.g. `https://your-app.vercel.app`).
+4. Add it to your GitHub profile README:
+
+~~~markdown
+![Spotify](https://your-app.vercel.app)
+~~~
+
+---
 ## Self-hosting
 
 The binary is a single statically-linked executable with no external dependencies beyond the `.env` file. A minimal systemd unit or Docker setup works well.
