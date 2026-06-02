@@ -115,7 +115,11 @@ Open an issue or PR if you want to take something on.
 
 ---
 ### Attributions
-Spotify icon by [Icons8]("https://icons8.com/")
+Spotify icon by [Icons8](https://icons8.com/)
+
+
+My own figma design [here](https://www.figma.com/design/Ftmfbjh2o2t3crXOYtXH9S/Spotify-banner-ui?node-id=0-1&t=Jm30nqVBOZPtt2RP-1)
+
 
 ## License
 
