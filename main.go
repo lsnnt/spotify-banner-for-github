@@ -16,6 +16,7 @@ import (
 	"time"
 
 	svg "github.com/ajstarks/svgo"
+	"github.com/lsnnt/spotify-banner-for-github/pathsconst"
 	"github.com/joho/godotenv"
 )
 
@@ -75,40 +76,30 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err) // log it but don't crash
 		return
 	}
-	// AI code below
 	s := svg.New(w)
-	width, height := 700, 800
-	padding := 40
-	lineHeight := 30
+	width, height := 700, 810
+	// padding := 40
+	// lineHeight := 30
 	s.Start(width, height)
-	s.Rect(0, 0, width, height, "fill:#121212")
-	s.Rect(padding/2, padding/2, width-padding, height-padding, "fill:#1db954;stroke:#ffffff;stroke-width:4;rx:24;ry:24")
-	// Heading
-	s.Text(width/2, padding+30, "Recently Played", "text-anchor:middle;font-family:Arial, sans-serif;font-size:32px;fill:#ffffff;font-weight:bold")
-	// Subtitle
-	s.Text(width/2, padding+68, "Spotify Banner", "text-anchor:middle;font-family:Arial, sans-serif;font-size:18px;fill:#f3f3f3")
-
+	s.Rect(0, 0, width, height, "fill:#79A7F2")
+	s.Image(17,2,100,100,pathsconst.Imagelogo())
+	s.Path(pathsconst.Topheader())
 	if len(rcpls) == 0 {
-		s.Text(width/2, height/2, "No recent tracks found", "text-anchor:middle;font-family:Arial, sans-serif;font-size:20px;fill:#ffffff")
+		s.Text(width/2, height/2, "No recent tracks found", "text-anchor:middle;font-family:Arial, sans-serif;font-size:20px;")
 	} else {
 		maxItems := 20
 		if len(rcpls) < maxItems {
 			maxItems = len(rcpls)
 		}
-		startY := padding + 120
-		for i := 0; i < maxItems; i++ {
+		for i:=0;i<maxItems;i++ {
 			text := rcpls[i]
 			if len(text) > 50 {
 				text = text[:47] + "..."
 			}
-			x := padding + 24
-			y := startY + i*lineHeight
-			bgY := y - 24
-			s.Rect(x-16, bgY, width-padding-64, lineHeight+10, "fill:rgba(0,0,0,0.15);rx:10;ry:10")
-			s.Text(x, y, fmt.Sprintf("%d. %s", i+1, text), "font-family:Arial, sans-serif;font-size:18px;fill:#ffffff")
+			s.Rect(67,114+i*35,589,24,"fill:#D9D9D9")
+			s.Text(79, 131+i*35, fmt.Sprintf("%d. %s", i+1, text), "font-family:Arial, sans-serif;font-size:16px;")
 		}
 	}
-	// AI code above
 
 	s.End()
 }
