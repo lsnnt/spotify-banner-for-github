@@ -36,6 +36,12 @@ var (
 	cachedToken string
 	tokenMu     sync.Mutex
 )
+
+var (
+    musicCache []string
+    musicMu    sync.RWMutex
+)
+
 const (
 	clientID string = "cfe923b2d660439caf2b557b21f31221"
 )
@@ -197,6 +203,17 @@ func getToken() (string,error) {
 	return token,nil
 }
 
+// Cached music function
+func getCachedMusic() []string {
+    musicMu.RLock()
+    defer musicMu.RUnlock()
+
+    if musicCache == nil {
+        return nil
+    }
+    return append([]string(nil), musicCache...)
+}
+
 // Function that returns the 20 recently played songs as a string array.
 func getMusicRecords() ([]string,error) {
 	for attempt := 0; attempt < 2; attempt++ {
@@ -217,13 +234,17 @@ func getMusicRecords() ([]string,error) {
 		if err != nil {
 			return nil, fmt.Errorf("building request: %w", err)
 		}
-
+		
+		if res.StatusCode == 429 {
+			res.Body.Close()
+			cached := getCachedMusic()
+			return cached,nil
+		}
 		if res.StatusCode != http.StatusOK {
 			res.Body.Close()
 			invalidateToken() // invalidate token
 			continue
 		}
-
 		var data RecentlyPlayedResponse
 		err = json.NewDecoder(res.Body).Decode(&data)
 		res.Body.Close()
@@ -235,7 +256,12 @@ func getMusicRecords() ([]string,error) {
 		for _, item := range data.Items {
 			tracks = append(tracks, item.Track.Name)
 		}
+
+		musicMu.Lock()
+		musicCache = append([]string(nil), tracks...) // make a copy
+		musicMu.Unlock()
 		return tracks,nil
+		
 	}
 	return nil,fmt.Errorf("failed after token refresh, giving up")
 }
