@@ -74,8 +74,8 @@ var httpClient = &http.Client{
 // http Handler function to handle the request
 func myHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "image/svg+xml")
-	// The cache control header is necessary otherwise guthub camo (image caching service) will cache the image
-	w.Header().Add("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate")
+	// as per my research currrently 40 api request allowed per day so caching accordingly
+	w.Header().Add("Cache-Control", "public, max-age=2160")
 	rcpls,err := getMusicRecords()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to fetch tracks: %v", err), 500)
